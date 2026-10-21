@@ -1,0 +1,38 @@
+name: Server & web CI
+
+on:
+  pull_request:
+    paths:
+      - "server/**"
+      - "web/**"
+      - "shared/**"
+      - "package.json"
+      - ".github/workflows/server.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "web/**"
+      - "shared/**"
+      - "package.json"
+      - ".github/workflows/server.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            web/package-lock.json
+      # Root postinstall also installs server/ and web/ dependencies.
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
