@@ -1,0 +1,17 @@
+// Shared build settings for Latent. XcodeGen wires Debug/Release.xcconfig (which include this file).
+// NOTE: "//" starts a comment in xcconfig files, so URLs are written as https:/$()/host.
+
+PRODUCT_BUNDLE_IDENTIFIER = com.benjaminhannan.latent
+
+// TODO: put your 10-character Apple Developer Team ID here (developer.apple.com > Membership details).
+// CI overrides this from the APPLE_TEAM_ID secret, so it can stay empty for the fully-CI path.
+DEVELOPMENT_TEAM =
+
+// User-visible version. Bump for each release train.
+MARKETING_VERSION = 0.1.0
+// Build number. fastlane's `beta` lane overwrites this with (latest TestFlight build + 1).
+CURRENT_PROJECT_VERSION = 1
+
+// Backend the app talks to (exposed to Swift as Info.plist key LatentAPIBaseURL).
+// Change to your deployed host if you used a different Fly app name.
+API_BASE_URL = https:/$()/latent-api.fly.dev

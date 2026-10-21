@@ -1,0 +1,6 @@
+#include "Base.xcconfig"
+
+// Debug builds talk to a local dev server (`npm run dev` -> port 8787).
+// Use your Mac's LAN IP instead of localhost when running on a physical device.
+API_BASE_URL = http:/$()/localhost:8787
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG

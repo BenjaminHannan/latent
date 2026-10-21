@@ -1,0 +1,11 @@
+# NOTE: build context is the repo root; Docker reads <Dockerfile>.dockerignore or .dockerignore at the
+# context root. Keep this file and the root .dockerignore identical.
+**/node_modules
+**/dist
+server/data
+ios
+docs
+.git
+.github
+*.log
+.DS_Store

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+server/data/
+*.log
+.DS_Store
+
+# iOS (XcodeGen generates the project; fastlane outputs)
+ios/*.xcodeproj
+ios/build/
+ios/fastlane/report.xml
+ios/fastlane/test_output/
+*.ipa
+*.dSYM.zip
+Latent.xcresult
+.bundle/
+vendor/bundle/
