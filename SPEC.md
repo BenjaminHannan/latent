@@ -120,3 +120,65 @@ Bottom tab bar: **Feed · Record (big center button) · You**.
 
 Router: `react-router-dom`. Data fetching via a small typed client `web/src/api/client.ts`.
 PWA: `manifest.webmanifest` + simple service worker for app-shell caching.
+
+## iOS app (ios/) — the primary client, shipped via TestFlight
+
+Native SwiftUI, iOS 17+, iPhone only, portrait. No third-party Swift packages.
+Talks to the same server API. Project is generated with **XcodeGen** from `ios/project.yml`
+(no checked-in .xcodeproj) and built/uploaded by GitHub Actions on a macOS runner with fastlane.
+
+```
+ios/
+  project.yml                 XcodeGen spec (targets: Latent app, LatentTests unit tests)
+  Config/Base.xcconfig        BUNDLE_ID, DEVELOPMENT_TEAM, MARKETING_VERSION, API_BASE_URL
+  Latent/
+    App/                      LatentApp.swift, RootView (tab bar), AppState
+    Models/Models.swift       Codable mirror of shared/types.ts (CONTRACT — owned by coordinator)
+    Networking/               APIClient (async/await URLSession), Keychain token store, multipart upload
+    Capture/                  CaptureEngine (AVFoundation), FrameStore (disk), TimelapseRenderer (AVAssetWriter)
+    Features/Feed|Record|Session|Profile|Search|Auth/   SwiftUI screens
+    Design/                   Theme (colors, fonts), shared components (Avatar, CategoryChip, StatsRow)
+    Resources/Assets.xcassets AppIcon (1024 single-size), AccentColor
+    Info.plist
+  LatentTests/
+  fastlane/Fastfile, Appfile
+```
+
+### Native capture engine (ios/Latent/Capture/)
+
+Battery/storage strategy:
+- `AVCaptureSession` with `.photo`-less low-cost config: `sessionPreset = .hd1280x720`, `AVCaptureVideoDataOutput`
+  with `alwaysDiscardsLateVideoFrames = true`; frame rate clamped to the minimum supported (e.g. 1–5 fps via
+  `activeVideoMinFrameDuration`) so the sensor/ISP does minimal work. Every `intervalSec` the next delivered
+  sample buffer is converted to JPEG (CIContext, quality 0.6, 1280 px long edge) and written to
+  `Application Support/Sessions/<id>/frames/000001.jpg`. All other buffers are dropped immediately.
+- When `intervalSec ≥ 10` and battery saver on: stop the session between captures, restart ~1.5 s before.
+- `UIApplication.shared.isIdleTimerDisabled = true` while recording; focus overlay is pure black and sets
+  `UIScreen.main.brightness` to a low value (restore on exit). Prevent recording on low-power-critical (< 5%) with a warning.
+- Session metadata JSON (`meta.json`: id, startedAt, intervalSec, category, frameCount, focusMs, status)
+  updated after each frame so crashed sessions are recoverable.
+- `TimelapseRenderer`: AVAssetWriter H.264 MP4 at 30 fps, frames appended via
+  `AVAssetWriterInputPixelBufferAdaptor`, with an elapsed-time stamp drawn on each frame; thumbnail = middle frame
+  JPEG ≤ 640 px. Runs off the main actor, reports progress; much faster than real time.
+
+```swift
+struct CaptureOptions { var intervalSec: Int; var position: AVCaptureDevice.Position; var batterySaver: Bool; var category: Category }
+enum CaptureStatus: Equatable { case idle, starting, recording, paused, stopping, error(String) }
+@MainActor final class CaptureEngine: ObservableObject {
+  @Published private(set) var status: CaptureStatus
+  @Published private(set) var frameCount: Int
+  @Published private(set) var focusMs: Int          // excludes paused time
+  @Published private(set) var lastFrame: UIImage?
+  let previewSession: AVCaptureSession              // for AVCaptureVideoPreviewLayer
+  init(options: CaptureOptions)
+  func requestPermission() async -> Bool
+  func startPreview() async
+  func start() async throws
+  func pause(); func resume()
+  func stop() async -> RecordedSession
+  func discard()
+}
+struct RecordedSession: Codable, Identifiable { let id: String; let startedAt: Date; var endedAt: Date?; let intervalSec: Int; var category: Category; var frameCount: Int; var focusMs: Int; var status: String /* recording|complete|saved */ }
+enum FrameStore { static func recoverable() -> [RecordedSession]; static func frameURLs(_ id: String) -> [URL]; static func delete(_ id: String); static func markSaved(_ id: String) }
+enum TimelapseRenderer { static func render(_ s: RecordedSession, fps: Int = 30, progress: @escaping @Sendable (Double) -> Void) async throws -> (video: URL, thumbnail: URL, videoDurationMs: Int) }
+```
